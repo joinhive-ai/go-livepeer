@@ -123,6 +123,7 @@ func (orch *orchestrator) ImageToVideo(ctx context.Context, req worker.ImageToVi
 }
 
 func (orch *orchestrator) ProcessPayment(ctx context.Context, payment net.Payment, manifestID ManifestID) error {
+	return nil
 	if orch.node == nil || orch.node.Recipient == nil {
 		return nil
 	}
