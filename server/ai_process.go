@@ -813,7 +813,7 @@ func submitAudioToText(ctx context.Context, params aiRequestParams, sess *AISess
 	return &res, nil
 }
 
-func CalculateLlmGenerateLatencyScore(took time.Duration, tokensUsed int) float64 {
+func CalculateLLMLatencyScore(took time.Duration, tokensUsed int) float64 {
 	if tokensUsed <= 0 {
 		return 0
 	}
@@ -883,7 +883,6 @@ func submitLlmGenerate(ctx context.Context, params aiRequestParams, sess *AISess
 		}
 		return nil, err
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -901,6 +900,7 @@ func handleSSEStream(ctx context.Context, body io.ReadCloser, sess *AISession, r
 	streamChan := make(chan worker.LlmStreamChunk, 100)
 	go func() {
 		defer close(streamChan)
+		defer body.Close()
 		scanner := bufio.NewScanner(body)
 		var totalTokens int
 		for scanner.Scan() {
@@ -925,7 +925,7 @@ func handleSSEStream(ctx context.Context, body io.ReadCloser, sess *AISession, r
 		}
 
 		took := time.Since(start)
-		sess.LatencyScore = CalculateLlmGenerateLatencyScore(took, totalTokens)
+		sess.LatencyScore = CalculateLLMLatencyScore(took, totalTokens)
 
 		if monitor.Enabled {
 			var pricePerAIUnit float64
@@ -941,6 +941,7 @@ func handleSSEStream(ctx context.Context, body io.ReadCloser, sess *AISession, r
 
 func handleNonStreamingResponse(ctx context.Context, body io.ReadCloser, sess *AISession, req worker.GenLLMFormdataRequestBody, start time.Time) (*worker.LLMResponse, error) {
 	data, err := io.ReadAll(body)
+	defer body.Close()
 	if err != nil {
 		if monitor.Enabled {
 			monitor.AIRequestError(err.Error(), "llm-generate", *req.ModelId, sess.OrchestratorInfo)
@@ -957,7 +958,7 @@ func handleNonStreamingResponse(ctx context.Context, body io.ReadCloser, sess *A
 	}
 
 	took := time.Since(start)
-	sess.LatencyScore = CalculateLlmGenerateLatencyScore(took, res.TokensUsed)
+	sess.LatencyScore = CalculateLLMLatencyScore(took, res.TokensUsed)
 
 	if monitor.Enabled {
 		var pricePerAIUnit float64

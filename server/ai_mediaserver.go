@@ -396,14 +396,14 @@ func (ls *LivepeerServer) AudioToText() http.Handler {
 	})
 }
 
-func (ls *LivepeerServer) LlmGenerate() http.Handler {
+func (ls *LivepeerServer) LLM() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		remoteAddr := getRemoteAddr(r)
 		ctx := clog.AddVal(r.Context(), clog.ClientIP, remoteAddr)
 		requestID := string(core.RandomManifestID())
 		ctx = clog.AddVal(ctx, "request_id", requestID)
 
-		var req worker.LlmGenerateFormdataRequestBody
+		var req worker.GenLLMFormdataRequestBody
 
 		multiRdr, err := r.MultipartReader()
 		if err != nil {
@@ -416,7 +416,7 @@ func (ls *LivepeerServer) LlmGenerate() http.Handler {
 			return
 		}
 
-		clog.V(common.VERBOSE).Infof(ctx, "Received LlmGenerate request prompt=%v model_id=%v", req.Prompt, *req.ModelId)
+		clog.V(common.VERBOSE).Infof(ctx, "Received LLM request prompt=%v model_id=%v stream=%v", req.Prompt, *req.ModelId, *req.Stream)
 
 		params := aiRequestParams{
 			node:        ls.LivepeerNode,
@@ -437,7 +437,7 @@ func (ls *LivepeerServer) LlmGenerate() http.Handler {
 		}
 
 		took := time.Since(start)
-		clog.V(common.VERBOSE).Infof(ctx, "Processed LlmGenerate request prompt=%v model_id=%v took=%v", req.Prompt, *req.ModelId, took)
+		clog.V(common.VERBOSE).Infof(ctx, "Processed LLM request prompt=%v model_id=%v took=%v", req.Prompt, *req.ModelId, took)
 
 		if streamChan, ok := resp.(chan worker.LlmStreamChunk); ok {
 			// Handle streaming response (SSE)
@@ -453,7 +453,7 @@ func (ls *LivepeerServer) LlmGenerate() http.Handler {
 					break
 				}
 			}
-		} else if llmResp, ok := resp.(*worker.LlmResponse); ok {
+		} else if llmResp, ok := resp.(*worker.LLMResponse); ok {
 			// Handle non-streaming response
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(llmResp)

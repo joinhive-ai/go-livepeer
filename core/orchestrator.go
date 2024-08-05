@@ -130,9 +130,15 @@ func (orch *orchestrator) AudioToText(ctx context.Context, req worker.GenAudioTo
 	return orch.node.AudioToText(ctx, req)
 }
 
+<<<<<<< HEAD
 // Return type is LlmResponse, but a stream is available as well as chan(string)
 func (orch *orchestrator) LlmGenerate(ctx context.Context, req worker.GenLLMFormdataRequestBody) (interface{}, error) {
 	return orch.node.llmGenerate(ctx, req)
+=======
+// Return type is LLMResponse, but a stream is available as well as chan(string)
+func (orch *orchestrator) LLM(ctx context.Context, req worker.GenLLMFormdataRequestBody) (interface{}, error) {
+	return orch.node.LLM(ctx, req)
+>>>>>>> 9b6dc285 (misc: update ai-worker dependency)
 }
 
 func (orch *orchestrator) SegmentAnything2(ctx context.Context, req worker.GenSegmentAnything2MultipartRequestBody) (*worker.MasksResponse, error) {
