@@ -21,6 +21,9 @@ RUN	apt update \
 	&& apt update \
 	&& apt -yqq install clang-14 clang-tools-14 lld-14 build-essential pkg-config autoconf git python docker-ce-cli pciutils gcc-multilib libgcc-8-dev-arm64-cross gcc-mingw-w64-x86-64 zlib1g zlib1g-dev
 
+# TODO: Needed only for ai-worker
+RUN curl -fsSL https://get.docker.com | sh
+
 RUN	update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-14 30 \
 	&& update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 30 \
 	&& update-alternatives --install /usr/bin/ld ld /usr/bin/lld-14 30

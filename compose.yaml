@@ -1,0 +1,25 @@
+services:
+  orchestrator:
+    build: 
+      context: .
+      dockerfile: docker/Dockerfile
+    working_dir: "/usr/local/bin"
+    entrypoint: ./livepeer -orchestrator -orchSecret abcd -serviceAddr 0.0.0.0:8935 -v 6
+  worker:
+    build:
+        context: .
+        dockerfile: docker/Dockerfile
+    working_dir: "/usr/local/bin"
+    entrypoint: ./livepeer -transcoder -orchAddr orch:8935 -orchSecret abcd -v 6 -aiWorker -aiModels "text-to-image:ByteDance/SDXL-Lightning:false" -aiModelsDir ~/.lpData/
+    links: 
+      - "orchestrator:orch"
+    depends_on: 
+      - orchestrator
+  # gateway:
+  #   build: 
+  #       context: .
+  #       dockerfile: docker/Dockerfile
+  #   working_dir: "/usr/local/bin"
+  #   entrypoint: ./livepeer -gateway -orchAddr 0.0.0.0:8935 -httpAddr 0.0.0.0:8936 --httpIngest -v 6
+  #   depends_on: 
+  #     - worker
