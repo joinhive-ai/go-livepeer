@@ -44,7 +44,7 @@ func startAIServer(lp lphttp) error {
 	lp.transRPC.Handle("/image-to-video", oapiReqValidator(lp.ImageToVideo()))
 	lp.transRPC.Handle("/upscale", oapiReqValidator(lp.Upscale()))
 	lp.transRPC.Handle("/audio-to-text", oapiReqValidator(lp.AudioToText()))
-	lp.transRPC.Handle("/llm-generate", oapiReqValidator(lp.LlmGenerate()))
+	lp.transRPC.Handle("/llm", oapiReqValidator(lp.LLM()))
 	lp.transRPC.Handle("/segment-anything-2", oapiReqValidator(lp.SegmentAnything2()))
 
 	return nil
@@ -330,7 +330,7 @@ func handleAIRequest(ctx context.Context, w http.ResponseWriter, r *http.Request
 		}
 		outPixels *= 1000 // Convert to milliseconds
 	case worker.GenLLMFormdataRequestBody:
-		pipeline = "llm-generate"
+		pipeline = "llm"
 		cap = core.Capability_LLM
 		modelID = *v.ModelId
 		submitFn = func(ctx context.Context) (interface{}, error) {

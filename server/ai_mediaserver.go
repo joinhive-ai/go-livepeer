@@ -70,7 +70,7 @@ func startAIMediaServer(ls *LivepeerServer) error {
 	ls.HTTPMux.Handle("/image-to-video", oapiReqValidator(ls.ImageToVideo()))
 	ls.HTTPMux.Handle("/image-to-video/result", ls.ImageToVideoResult())
 	ls.HTTPMux.Handle("/audio-to-text", oapiReqValidator(ls.AudioToText()))
-	ls.HTTPMux.Handle("/llm-generate", oapiReqValidator(ls.LlmGenerate()))
+	ls.HTTPMux.Handle("/llm", oapiReqValidator(ls.LLM()))
 	ls.HTTPMux.Handle("/segment-anything-2", oapiReqValidator(ls.SegmentAnything2()))
 
 	return nil
@@ -425,7 +425,7 @@ func (ls *LivepeerServer) LLM() http.Handler {
 		}
 
 		start := time.Now()
-		resp, err := processLlmGenerate(ctx, params, req)
+		resp, err := processLLM(ctx, params, req)
 		if err != nil {
 			var e *ServiceUnavailableError
 			if errors.As(err, &e) {

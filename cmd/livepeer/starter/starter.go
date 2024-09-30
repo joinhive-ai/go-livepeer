@@ -1320,11 +1320,11 @@ func StartLivepeer(ctx context.Context, cfg LivepeerConfig) {
 					}
 					n.SetBasePriceForCap("default", core.Capability_AudioToText, config.ModelID, autoPrice)
 
-				case "llm-generate":
+				case "llm":
 					_, ok := capabilityConstraints[core.Capability_LLM]
 					if !ok {
 						aiCaps = append(aiCaps, core.Capability_LLM)
-						capabilityConstraints[core.Capability_LLM] = &core.PerCapabilityConstraints{
+						capabilityConstraints[core.Capability_LLM] = &core.CapabilityConstraints{
 							Models: make(map[string]*core.ModelConstraint),
 						}
 					}

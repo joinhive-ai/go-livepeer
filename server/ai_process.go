@@ -31,7 +31,7 @@ const defaultImageToImageModelID = "stabilityai/sdxl-turbo"
 const defaultImageToVideoModelID = "stabilityai/stable-video-diffusion-img2vid-xt"
 const defaultUpscaleModelID = "stabilityai/stable-diffusion-x4-upscaler"
 const defaultAudioToTextModelID = "openai/whisper-large-v3"
-const defaultLlmGenerateModelID = "meta-llama/llama-3.1-8B-Instruct"
+const defaultLLMModelID = "meta-llama/llama-3.1-8B-Instruct"
 const defaultSegmentAnything2ModelID = "facebook/sam2-hiera-large"
 
 type ServiceUnavailableError struct {
@@ -821,7 +821,7 @@ func CalculateLLMLatencyScore(took time.Duration, tokensUsed int) float64 {
 	return took.Seconds() / float64(tokensUsed)
 }
 
-func processLlmGenerate(ctx context.Context, params aiRequestParams, req worker.GenLLMFormdataRequestBody) (interface{}, error) {
+func processLLM(ctx context.Context, params aiRequestParams, req worker.GenLLMFormdataRequestBody) (interface{}, error) {
 	resp, err := processAIRequest(ctx, params, req)
 	if err != nil {
 		return nil, err
@@ -843,12 +843,12 @@ func processLlmGenerate(ctx context.Context, params aiRequestParams, req worker.
 	return llmResp, nil
 }
 
-func submitLlmGenerate(ctx context.Context, params aiRequestParams, sess *AISession, req worker.GenLLMFormdataRequestBody) (interface{}, error) {
+func submitLLM(ctx context.Context, params aiRequestParams, sess *AISession, req worker.GenLLMFormdataRequestBody) (interface{}, error) {
 	var buf bytes.Buffer
 	mw, err := worker.NewLLMMultipartWriter(&buf, req)
 	if err != nil {
 		if monitor.Enabled {
-			monitor.AIRequestError(err.Error(), "llm-generate", *req.ModelId, nil)
+			monitor.AIRequestError(err.Error(), "llm", *req.ModelId, nil)
 		}
 		return nil, err
 	}
@@ -856,7 +856,7 @@ func submitLlmGenerate(ctx context.Context, params aiRequestParams, sess *AISess
 	client, err := worker.NewClientWithResponses(sess.Transcoder(), worker.WithHTTPClient(httpClient))
 	if err != nil {
 		if monitor.Enabled {
-			monitor.AIRequestError(err.Error(), "llm-generate", *req.ModelId, sess.OrchestratorInfo)
+			monitor.AIRequestError(err.Error(), "llm", *req.ModelId, sess.OrchestratorInfo)
 		}
 		return nil, err
 	}
@@ -869,7 +869,7 @@ func submitLlmGenerate(ctx context.Context, params aiRequestParams, sess *AISess
 	setHeaders, balUpdate, err := prepareAIPayment(ctx, sess, int64(*req.MaxTokens))
 	if err != nil {
 		if monitor.Enabled {
-			monitor.AIRequestError(err.Error(), "llm-generate", *req.ModelId, sess.OrchestratorInfo)
+			monitor.AIRequestError(err.Error(), "llm", *req.ModelId, sess.OrchestratorInfo)
 		}
 		return nil, err
 	}
@@ -879,7 +879,7 @@ func submitLlmGenerate(ctx context.Context, params aiRequestParams, sess *AISess
 	resp, err := client.GenLLMWithBody(ctx, mw.FormDataContentType(), &buf, setHeaders)
 	if err != nil {
 		if monitor.Enabled {
-			monitor.AIRequestError(err.Error(), "llm-generate", *req.ModelId, sess.OrchestratorInfo)
+			monitor.AIRequestError(err.Error(), "llm", *req.ModelId, sess.OrchestratorInfo)
 		}
 		return nil, err
 	}
@@ -932,7 +932,7 @@ func handleSSEStream(ctx context.Context, body io.ReadCloser, sess *AISession, r
 			if priceInfo := sess.OrchestratorInfo.GetPriceInfo(); priceInfo != nil && priceInfo.PixelsPerUnit != 0 {
 				pricePerAIUnit = float64(priceInfo.PricePerUnit) / float64(priceInfo.PixelsPerUnit)
 			}
-			monitor.AIRequestFinished(ctx, "llm-generate", *req.ModelId, monitor.AIJobInfo{LatencyScore: sess.LatencyScore, PricePerUnit: pricePerAIUnit}, sess.OrchestratorInfo)
+			monitor.AIRequestFinished(ctx, "llm", *req.ModelId, monitor.AIJobInfo{LatencyScore: sess.LatencyScore, PricePerUnit: pricePerAIUnit}, sess.OrchestratorInfo)
 		}
 	}()
 
@@ -944,7 +944,7 @@ func handleNonStreamingResponse(ctx context.Context, body io.ReadCloser, sess *A
 	defer body.Close()
 	if err != nil {
 		if monitor.Enabled {
-			monitor.AIRequestError(err.Error(), "llm-generate", *req.ModelId, sess.OrchestratorInfo)
+			monitor.AIRequestError(err.Error(), "llm", *req.ModelId, sess.OrchestratorInfo)
 		}
 		return nil, err
 	}
@@ -952,7 +952,7 @@ func handleNonStreamingResponse(ctx context.Context, body io.ReadCloser, sess *A
 	var res worker.LLMResponse
 	if err := json.Unmarshal(data, &res); err != nil {
 		if monitor.Enabled {
-			monitor.AIRequestError(err.Error(), "llm-generate", *req.ModelId, sess.OrchestratorInfo)
+			monitor.AIRequestError(err.Error(), "llm", *req.ModelId, sess.OrchestratorInfo)
 		}
 		return nil, err
 	}
@@ -965,7 +965,7 @@ func handleNonStreamingResponse(ctx context.Context, body io.ReadCloser, sess *A
 		if priceInfo := sess.OrchestratorInfo.GetPriceInfo(); priceInfo != nil && priceInfo.PixelsPerUnit != 0 {
 			pricePerAIUnit = float64(priceInfo.PricePerUnit) / float64(priceInfo.PixelsPerUnit)
 		}
-		monitor.AIRequestFinished(ctx, "llm-generate", *req.ModelId, monitor.AIJobInfo{LatencyScore: sess.LatencyScore, PricePerUnit: pricePerAIUnit}, sess.OrchestratorInfo)
+		monitor.AIRequestFinished(ctx, "llm", *req.ModelId, monitor.AIJobInfo{LatencyScore: sess.LatencyScore, PricePerUnit: pricePerAIUnit}, sess.OrchestratorInfo)
 	}
 
 	return &res, nil
@@ -1023,13 +1023,13 @@ func processAIRequest(ctx context.Context, params aiRequestParams, req interface
 			return submitAudioToText(ctx, params, sess, v)
 		}
 	case worker.GenLLMFormdataRequestBody:
-		cap = core.Capability_LlmGenerate
-		modelID = defaultLlmGenerateModelID
+		cap = core.Capability_LLM
+		modelID = defaultLLMModelID
 		if v.ModelId != nil {
 			modelID = *v.ModelId
 		}
 		submitFn = func(ctx context.Context, params aiRequestParams, sess *AISession) (interface{}, error) {
-			return submitLlmGenerate(ctx, params, sess, v)
+			return submitLLM(ctx, params, sess, v)
 		}
 	case worker.GenSegmentAnything2MultipartRequestBody:
 		cap = core.Capability_SegmentAnything2
