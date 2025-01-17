@@ -14,7 +14,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/glog"
-	"github.com/google/uuid"
 	"github.com/livepeer/ai-worker/worker"
 	"github.com/livepeer/go-livepeer/clog"
 	"github.com/livepeer/go-livepeer/common"
@@ -172,9 +171,8 @@ func (rwm *RemoteAIWorkerManager) Process(ctx context.Context, requestID string,
 		return nil, err
 	}
 
-	// create job
-	jobID := uuid.New().String()
-	err = rwm.hiveClient.CreateJob(ctx, jobID, &hive.CreateJobRequest{
+	// Create job and get job ID from response
+	jobID, err := rwm.hiveClient.CreateJob(ctx, &hive.CreateJobRequest{
 		WorkerID: w.hiveWorkerID,
 		Pipeline: pipeline,
 		Model:    modelID,
@@ -182,19 +180,21 @@ func (rwm *RemoteAIWorkerManager) Process(ctx context.Context, requestID string,
 		Source:   hive.JobSourceLivepeer,
 	})
 	if err != nil {
-		glog.Errorf("Error creating job=%s err=%q", jobID, err)
+		glog.Errorf("Error creating job err=%q", err)
+		return nil, err
 	}
 
 	res, err := w.Process(ctx, pipeline, modelID, fname, req)
 	if err != nil {
-		err := rwm.hiveClient.CompleteJob(ctx, jobID, &hive.CompleteJobRequest{
+		completeErr := rwm.hiveClient.CompleteJob(ctx, jobID, &hive.CompleteJobRequest{
 			Status:   hive.JobStatusFailed,
 			ErrorMsg: err.Error(),
 		})
-		if err != nil {
-			glog.Errorf("Error completing job=%s err=%q", jobID, err)
+		if completeErr != nil {
+			glog.Errorf("Error completing job err=%q", completeErr)
 		}
 		rwm.completeAIRequest(requestID, pipeline, modelID)
+		return nil, err
 	}
 	_, fatal := err.(RemoteAIWorkerFatalError)
 	if fatal {
@@ -208,13 +208,13 @@ func (rwm *RemoteAIWorkerManager) Process(ctx context.Context, requestID string,
 	resChan, ok := res.Results.(<-chan worker.LlmStreamChunk)
 	if !ok {
 		ctxNonRoutine := context.Background()
-		err = rwm.hiveClient.CompleteJob(ctxNonRoutine, jobID, &hive.CompleteJobRequest{
+		completeErr := rwm.hiveClient.CompleteJob(ctxNonRoutine, jobID, &hive.CompleteJobRequest{
 			Payout: 0,
 			Status: hive.JobStatusCompleted,
 		})
 
-		if err != nil {
-			glog.Errorf("Error completing job=%s err=%q", jobID, err)
+		if completeErr != nil {
+			glog.Errorf("Error completing job err=%q", completeErr)
 		}
 
 		rwm.completeAIRequest(requestID, pipeline, modelID)
@@ -226,13 +226,13 @@ func (rwm *RemoteAIWorkerManager) Process(ctx context.Context, requestID string,
 					rwm.completeAIRequest(requestID, pipeline, modelID)
 
 					ctxRoutine := context.Background()
-					err = rwm.hiveClient.CompleteJob(ctxRoutine, jobID, &hive.CompleteJobRequest{
+					completeErr := rwm.hiveClient.CompleteJob(ctxRoutine, jobID, &hive.CompleteJobRequest{
 						Payout: 0,
 						Status: hive.JobStatusCompleted,
 					})
 
-					if err != nil {
-						glog.Errorf("Error completing job=%s err=%q", jobID, err)
+					if completeErr != nil {
+						glog.Errorf("Error completing job err=%q", completeErr)
 					}
 
 					break

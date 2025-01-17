@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 type JobSource string
@@ -182,11 +180,14 @@ func (h *Hive) DeactivateWorker(ctx context.Context, workerID string) error {
 }
 
 // Job methods
-func (h *Hive) CreateJob(ctx context.Context, jobID string, req *CreateJobRequest) error {
-	glog.Infof("Received create job request ID=%s worker=%s", jobID, req.WorkerID)
+func (h *Hive) CreateJob(ctx context.Context, req *CreateJobRequest) (string, error) {
+	var response struct {
+		Message string `json:"message"`
+		Job     Job    `json:"job"`
+	}
+	endpoint := "/api/v1/jobs"
 	job := Job{
-		ID:           jobID,
-		Orchestrator: "hive-ai",
+		Orchestrator: req.Orchestrator,
 		WorkerID:     req.WorkerID,
 		Status:       JobStatusProcessing,
 		Pipeline:     req.Pipeline,
@@ -194,12 +195,11 @@ func (h *Hive) CreateJob(ctx context.Context, jobID string, req *CreateJobReques
 		Tokens:       0,
 		Source:       req.Source,
 	}
-	endpoint := fmt.Sprintf("/api/v1/jobs/%s", jobID)
-	err := h.sendRequest(ctx, http.MethodPost, endpoint, job, nil)
+	err := h.sendRequest(ctx, http.MethodPost, endpoint, job, &response)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return response.Job.ID, nil
 }
 
 func (h *Hive) CompleteJob(ctx context.Context, jobID string, req *CompleteJobRequest) error {
